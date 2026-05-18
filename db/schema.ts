@@ -126,6 +126,22 @@ export const deals = sqliteTable("deals", {
   dealNotesFreetext: text("deal_notes_freetext"),
 
   /**
+   * hospitalityOverageRule — who absorbs hospitality spend above the cap.
+   *
+   * venue_absorbs:   venue eats the overage (current silent default — 107 shows, $10,258)
+   * artist_absorbs:  overage deducted from artist payout
+   * split:           overage split 50/50 between venue and artist
+   * null:            not discussed / no hospitality cap on this deal
+   *
+   * In practice this is almost never written into the deal email — the venue
+   * absorbs silently every time. Adding this field forces the conversation to
+   * happen at booking, not at 2am.
+   */
+  hospitalityOverageRule: text("hospitality_overage_rule", {
+    enum: ["venue_absorbs", "artist_absorbs", "split"],
+  }),
+
+  /**
    * recoupBasis — how marketing recoups are applied in the deal.
    *
    * inside_cap:    recoup counts toward and is capped by the expense cap
