@@ -60,6 +60,7 @@ export default async function ShowDetailPage({
     expenses,
     comps,
     vendors,
+    masterVendors,
   } = data;
 
   const grossSoFar = ticketSales.reduce((sum, t) => sum + t.gross, 0);
@@ -455,8 +456,9 @@ export default async function ShowDetailPage({
                               expenseId={e.id}
                               showId={show.id}
                               category={e.category}
-                              vendor={v ?? null}
+                              linkedVendor={v ?? null}
                               showVendors={vendors}
+                              masterVendors={masterVendors}
                             />
                             {e.receiptParsed && (
                               <span title="Populated from vendor receipt">

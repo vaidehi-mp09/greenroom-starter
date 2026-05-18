@@ -187,9 +187,9 @@ export const comps = sqliteTable("comps", {
  */
 export const vendors = sqliteTable("vendors", {
   id: text("id").primaryKey(),
-  showId: text("show_id")
-    .notNull()
-    .references(() => shows.id),
+  // null = master/pre-onboarded vendor (not tied to a specific show)
+  // set = vendor registered for that specific show
+  showId: text("show_id").references(() => shows.id),
   name: text("name").notNull(),
   category: text("category", {
     enum: [
