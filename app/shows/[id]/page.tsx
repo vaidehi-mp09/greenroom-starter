@@ -6,10 +6,10 @@ import {
   AlertCircle,
   Clock,
   TrendingUp,
-  Receipt,
 } from "lucide-react";
 import { VendorPanel } from "@/components/vendor-panel";
 import { ExpenseVendorCell } from "@/components/expense-vendor-cell";
+import { ExpenseReceiptUpload } from "@/components/expense-receipt-upload";
 import { getShowById } from "@/lib/queries";
 import {
   Card,
@@ -473,6 +473,7 @@ export default async function ShowDetailPage({
                       <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Vendor</th>
                       <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Description</th>
                       <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-right">Amount</th>
+                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-center">Upload receipt</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink-100/60">
@@ -485,28 +486,30 @@ export default async function ShowDetailPage({
                           )}
                         </td>
                         <td className="py-2.5">
-                          <div className="flex items-center gap-1.5">
-                            <ExpenseVendorCell
-                              expenseId={e.id}
-                              showId={show.id}
-                              category={e.category}
-                              linkedVendor={v ?? null}
-                              showVendors={vendors}
-                              masterVendors={masterVendors}
-                            />
-                            {e.receiptParsed && (
-                              <span title="Populated from vendor receipt">
-                                <Receipt className="h-3 w-3 text-brand-500 shrink-0" />
-                              </span>
-                            )}
-                          </div>
+                          <ExpenseVendorCell
+                            expenseId={e.id}
+                            showId={show.id}
+                            category={e.category}
+                            linkedVendor={v ?? null}
+                            showVendors={vendors}
+                            masterVendors={masterVendors}
+                          />
                         </td>
                         <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
                         <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
+                        <td className="py-2.5 text-center">
+                          <ExpenseReceiptUpload
+                            expenseId={e.id}
+                            showId={show.id}
+                            vendor={v ?? null}
+                            showVendors={vendors}
+                            alreadyParsed={e.receiptParsed ?? false}
+                          />
+                        </td>
                       </tr>
                     ))}
                     <tr className="font-medium">
-                      <td className="py-3" colSpan={3}>Total (passed through)</td>
+                      <td className="py-3" colSpan={4}>Total (passed through)</td>
                       <td className="py-3 text-right font-mono tabular">{formatMoney(totalExpenses)}</td>
                     </tr>
                   </tbody>

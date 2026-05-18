@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Receipt, Plus, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, Upload } from "lucide-react";
+import { Plus, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlainBadge } from "@/components/ui/badge";
 import type { Vendor } from "@/db/schema";
-import { addVendor, parseReceiptAndCreateExpense } from "@/app/actions/vendors";
+import { addVendor } from "@/app/actions/vendors";
 
 const CATEGORY_LABELS: Record<string, string> = {
   production: "Production",
@@ -40,7 +40,6 @@ interface Props {
 
 export function VendorPanel({ showId, vendors, compact = false }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [activeUpload, setActiveUpload] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -64,48 +63,6 @@ export function VendorPanel({ showId, vendors, compact = false }: Props) {
     });
   }
 
-  // ── Upload receipt ────────────────────────────────────────────────────────
-  function handleReceiptUpload(vendorId: string, e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const data = new FormData(form);
-    data.set("showId", showId);
-    data.set("vendorId", vendorId);
-
-    // Handle file if provided
-    const fileInput = form.querySelector<HTMLInputElement>('input[type="file"]');
-    const file = fileInput?.files?.[0];
-
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(",")[1];
-        data.set("receiptBase64", base64);
-        data.set("mediaType", file.type);
-        submitReceipt(vendorId, data, form);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      submitReceipt(vendorId, data, form);
-    }
-  }
-
-  function submitReceipt(vendorId: string, data: FormData, form: HTMLFormElement) {
-    startTransition(async () => {
-      const result = await parseReceiptAndCreateExpense(data);
-      if (result.error) {
-        setMessage({ type: "error", text: result.error });
-      } else if (result.expense) {
-        setMessage({
-          type: "success",
-          text: `Parsed: ${result.expense.description} · $${result.expense.amount?.toFixed(2)}`,
-        });
-        setActiveUpload(null);
-        form.reset();
-      }
-      setTimeout(() => setMessage(null), 5000);
-    });
-  }
 
   const inner = (
     <div className="space-y-3">
@@ -123,46 +80,7 @@ export function VendorPanel({ showId, vendors, compact = false }: Props) {
         </div>
       )}
 
-      {/* Per-vendor upload receipt */}
-      {vendors.map((v) => (
-        <div key={v.id}>
-          <button
-            onClick={() => setActiveUpload(activeUpload === v.id ? null : v.id)}
-            className="flex items-center gap-1 text-[11px] text-brand-600 hover:text-brand-900 font-medium transition-colors"
-          >
-            <Receipt className="h-3 w-3" />
-            {v.name} — upload receipt
-            {activeUpload === v.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
-
-          {activeUpload === v.id && (
-            <form onSubmit={(e) => handleReceiptUpload(v.id, e)} className="mt-2 space-y-2 border-t border-ink-100/80 pt-3">
-              <div>
-                <label className="text-[11px] text-ink-500 block mb-1">Receipt image (optional)</label>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="text-[11px] text-ink-600 w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-ink-500 block mb-1">Or paste receipt text</label>
-                <textarea
-                  name="receiptText"
-                  rows={3}
-                  placeholder="Paste invoice or receipt details here..."
-                  className="w-full text-[12px] rounded-md ring-1 ring-ink-200/60 bg-white px-3 py-2 text-ink-800 placeholder:text-ink-300 focus:outline-none focus:ring-brand-400 resize-none"
-                />
-              </div>
-              <Button type="submit" size="sm" variant="brand" disabled={isPending} className="w-full">
-                {isPending
-                  ? <><Loader2 className="h-3 w-3 animate-spin" /> Parsing…</>
-                  : <><Upload className="h-3 w-3" /> Parse & log expense</>}
-              </Button>
-            </form>
-          )}
-        </div>
-      ))}
+      {/* Upload receipt is handled per expense row in the expenses table */}
 
       {/* Add vendor form */}
       {showAddForm && (
