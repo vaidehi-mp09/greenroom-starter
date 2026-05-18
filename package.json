@@ -13,7 +13,6 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.96.0",
     "@libsql/client": "^0.17.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -22,9 +21,11 @@
     "geist": "^1.7.0",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
