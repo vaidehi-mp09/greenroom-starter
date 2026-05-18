@@ -26,11 +26,14 @@ const CATEGORY_ORDER = [
 
 interface Props {
   showId: string;
+  showDate: string;         // YYYY-MM-DD — used to restrict edits on past shows
   vendors: Vendor[];        // confirmed for this show
   masterVendors: Vendor[];  // global pre-onboarded pool (show_id = null)
 }
 
-export function VendorPanel({ showId, vendors, masterVendors }: Props) {
+export function VendorPanel({ showId, showDate, vendors, masterVendors }: Props) {
+  const today = new Date().toISOString().slice(0, 10);
+  const isPastShow = showDate < today;
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedMasterId, setSelectedMasterId] = useState("");
@@ -134,8 +137,15 @@ export function VendorPanel({ showId, vendors, masterVendors }: Props) {
           </div>
         )}
 
+        {/* Past show — no edits allowed */}
+        {isPastShow && (
+          <p className="text-[11px] text-ink-400 pt-1">
+            Past show — vendor list is locked.
+          </p>
+        )}
+
         {/* Add vendor form */}
-        {showAddForm && (
+        {!isPastShow && showAddForm && (
           <form
             onSubmit={handleAddVendor}
             className="rounded-lg ring-1 ring-brand-200/40 bg-brand-50/20 p-3 space-y-3 mt-2"
@@ -223,8 +233,8 @@ export function VendorPanel({ showId, vendors, masterVendors }: Props) {
           </form>
         )}
 
-        {/* Add vendor trigger */}
-        {!showAddForm && (
+        {/* Add vendor trigger — future shows only */}
+        {!isPastShow && !showAddForm && (
           <button
             onClick={() => setShowAddForm(true)}
             className="flex items-center gap-1.5 text-[11px] text-brand-600 hover:text-brand-900 font-medium transition-colors pt-1"

@@ -428,6 +428,7 @@ export default async function ShowDetailPage({
           <Card className="md:col-span-1">
             <VendorPanel
               showId={show.id}
+              showDate={show.date}
               vendors={vendors}
               masterVendors={masterVendors}
             />

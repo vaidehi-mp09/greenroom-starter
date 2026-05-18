@@ -1,13 +1,12 @@
 "use server";
 
 import { db } from "@/db";
-import { vendors, expenses } from "@/db/schema";
+import { vendors, expenses, shows } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createWorker } from "tesseract.js";
-// pdf-parse is CJS only — use require to avoid ESM default-export mismatch
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+// pdf-parse is lazily required inside extractPdfText to avoid DOMMatrix
+// browser-API error on server-side module evaluation
 
 // ── Add a vendor to a show ──────────────────────────────────────────────────
 
@@ -20,6 +19,14 @@ export async function addVendor(formData: FormData) {
 
   if (!showId || !name || !category) {
     return { error: "Missing required fields" };
+  }
+
+  // Guard: do not allow vendor additions to past shows
+  const showRows = await db.select({ date: shows.date }).from(shows).where(eq(shows.id, showId));
+  if (showRows.length === 0) return { error: "Show not found" };
+  const today = new Date().toISOString().slice(0, 10);
+  if (showRows[0].date < today) {
+    return { error: "Vendors cannot be added to a past show." };
   }
 
   const id = `vendor_${showId}_${Date.now()}`;
@@ -74,6 +81,9 @@ async function ocrImage(base64: string): Promise<string> {
 // ── Extract text from PDF ───────────────────────────────────────────────────
 
 async function extractPdfText(base64: string): Promise<string> {
+  // Lazy require — avoids DOMMatrix browser-API error on module load
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
   const buffer = Buffer.from(base64, "base64");
   const result = await pdfParse(buffer);
   return result.text as string;
