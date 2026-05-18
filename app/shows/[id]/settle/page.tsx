@@ -29,6 +29,11 @@ import {
 } from "@/lib/format";
 import type { Settlement, Recoup, Deal, Expense, TicketSale } from "@/db/schema";
 import { Logomark } from "@/components/brand/logo";
+import { WorksheetClientShell } from "@/components/worksheet-client-shell";
+import { ExpenseBreakdown } from "@/components/expense-breakdown";
+import type { ExpenseCategory } from "@/components/expense-breakdown";
+import { SettlementExport } from "@/components/settlement-export";
+import type { SettlementExportData } from "@/components/settlement-export";
 
 const RECOUP_LABELS: Record<Recoup["category"], string> = {
   marketing: "Marketing",
@@ -137,6 +142,8 @@ export default async function SettlePage({
           calc={calc}
           settlement={settlement}
           venueCapacity={data.venue?.capacity ?? undefined}
+          artist={artist?.name ?? "Unknown artist"}
+          showDate={show.date}
         />
 
         {recoups.length > 0 && <RecoupsSection recoups={recoups} />}
@@ -386,6 +393,8 @@ function SettlementWorksheet({
   ticketSales,
   calc,
   settlement,
+  artist,
+  showDate,
 }: {
   deal: Deal;
   expenses: Expense[];
@@ -393,6 +402,8 @@ function SettlementWorksheet({
   calc: ReturnType<typeof calculateSettlement>;
   settlement: Settlement | null;
   venueCapacity?: number;
+  artist: string;
+  showDate: string;
 }) {
   const grossBoxOffice  = ticketSales.reduce((s, t) => s + t.gross, 0);
   const totalFees       = ticketSales.reduce((s, t) => s + t.fees, 0);
@@ -410,10 +421,14 @@ function SettlementWorksheet({
   for (const e of passedThrough) {
     byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
   }
+  const expenseCategories: ExpenseCategory[] = Object.entries(byCategory).map(
+    ([category, amount]) => ({ category, amount })
+  );
   const hospActual  = byCategory.hospitality ?? 0;
   const hospOverage = deal.hospitalityCap
     ? Math.max(0, hospActual - deal.hospitalityCap)
     : 0;
+  void hospOverage; // used in export data
 
   // Final total: prefer the system-calculated value; fall back to manually entered
   const calcTotal = calc.supported ? calc.totalToArtist : null;
@@ -462,6 +477,35 @@ function SettlementWorksheet({
   const bonusesNotTriggered = calc.supported ? calc.bonusesNotTriggered : [];
   const bonusesApplied      = calc.supported ? calc.bonusesApplied      : [];
 
+  // ── Build flat export rows (expenses always expanded) ──────────────────────
+  const exportRows: SettlementExportData["rows"] = [
+    { lineItem: "Gross box office", agreed: "From integrated ticketing", actual: `$${grossBoxOffice.toFixed(2)}`, actualNum: grossBoxOffice },
+    { lineItem: "Platform fees",    agreed: "Per ticketing agreement",   actual: `− $${totalFees.toFixed(2)}`,  actualNum: -totalFees },
+    { lineItem: "Net box office",   agreed: "—",                         actual: `$${netBoxOffice.toFixed(2)}`, actualNum: netBoxOffice },
+    ...expenseCategories.map(({ category, amount }) => ({
+      lineItem: `  ${EXPENSE_LABELS[category] ?? category}`,
+      agreed: category === "hospitality" && deal.hospitalityCap
+        ? `Cap $${deal.hospitalityCap} · ${deal.hospitalityOverageRule ?? ""}`
+        : deal.expenseCap ? `Within cap $${deal.expenseCap}` : "Passed through",
+      actual: `− $${amount.toFixed(2)}`,
+      actualNum: -amount,
+    })),
+    { lineItem: "Net after expenses", agreed: "—", actual: `$${netAfterExp.toFixed(2)}`, actualNum: netAfterExp },
+    { lineItem: "Artist calculation", agreed: agreedCalc, actual: actualCalcDetail },
+    ...bonusesApplied.map((b) => ({ lineItem: b.label, agreed: "Bonus triggered", actual: `+ $${b.amount.toFixed(2)}`, actualNum: b.amount })),
+    ...bonusesNotTriggered.map((b) => ({ lineItem: b.label, agreed: b.reason, actual: "— not triggered" })),
+    ...(deal.recoupBasis ? [{ lineItem: "Marketing recoup", agreed: RECOUP_BASIS_SHORT[deal.recoupBasis] ?? deal.recoupBasis, actual: "see recoups section" }] : []),
+  ];
+
+  const exportData: SettlementExportData = {
+    artistName:         artist,
+    showDate,
+    dealType:           DEAL_TYPE_LABEL[deal.dealType] ?? deal.dealType,
+    rows:               exportRows,
+    totalToArtist:      finalTotal,
+    settledOffPlatform: !calc.supported,
+  };
+
   return (
     <>
       {/* Hero number — kept exactly as before */}
@@ -486,7 +530,8 @@ function SettlementWorksheet({
         )}
       </div>
 
-      {/* Two-column worksheet */}
+      {/* Two-column worksheet — wrapped in client shell for print/expand state */}
+      <WorksheetClientShell exportData={exportData}>
       <Card accent="brand">
         <CardHeader>
           <div>
@@ -517,37 +562,13 @@ function SettlementWorksheet({
                 actual={<span className="text-rose-600">− {formatMoney(totalFees)}</span>} />
               <WRowTotal label="Net box office" value={formatMoney(netBoxOffice)} />
 
-              {/* ── Expenses ───────────────────────────────────── */}
-              {Object.entries(byCategory).map(([cat, amt]) => {
-                const isHosp = cat === "hospitality";
-                const cap    = isHosp ? deal.hospitalityCap : null;
-                const over   = isHosp && cap ? Math.max(0, amt - cap) : 0;
-                const agreedStr = isHosp && cap
-                  ? `Cap ${formatMoney(cap)}${deal.hospitalityOverageRule ? ` · ${HOSP_OVERAGE_SHORT[deal.hospitalityOverageRule]}` : ""}`
-                  : cap ? `Within expense cap ${formatMoney(deal.expenseCap ?? 0)}` : "Passed through";
-                return (
-                  <WRow key={cat}
-                    label={`${EXPENSE_LABELS[cat] ?? cat}`}
-                    agreed={agreedStr}
-                    actual={
-                      <span className="flex flex-col items-end gap-0.5">
-                        <span className="text-rose-600">− {formatMoney(amt)}</span>
-                        {over > 0 && (
-                          <span className="text-[10px] text-amber-600 font-medium">
-                            {formatMoney(over)} over cap
-                          </span>
-                        )}
-                      </span>
-                    }
-                    indent
-                  />
-                );
-              })}
-              {deal.expenseCap && totalExpenses > deal.expenseCap && (
-                <WRow label="Expense cap applied"
-                  agreed={`Cap ${formatMoney(deal.expenseCap)}`}
-                  actual={<span className="text-amber-600 text-[11px]">Capped at {formatMoney(cappedExpenses)} · saved {formatMoney(totalExpenses - cappedExpenses)}</span>} />
-              )}
+              {/* ── Expenses — collapsible client component ─────── */}
+              <ExpenseBreakdown
+                categories={expenseCategories}
+                deal={deal}
+                totalExpenses={totalExpenses}
+                cappedExpenses={cappedExpenses}
+              />
               <WRowTotal label="Net after expenses" value={formatMoney(netAfterExp)} />
 
               {/* ── Artist calculation ─────────────────────────── */}
@@ -611,6 +632,7 @@ function SettlementWorksheet({
           </table>
         </CardContent>
       </Card>
+      </WorksheetClientShell>
     </>
   );
 }
