@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  FileWarning,
   ArrowRight,
   Check,
   AlertTriangle,
@@ -11,6 +10,7 @@ import {
   XCircle,
   Wallet,
   TrendingUp,
+  Info,
 } from "lucide-react";
 import { getShowById } from "@/lib/queries";
 import {
@@ -27,7 +27,7 @@ import {
   formatMoney,
   formatShowDateFull,
 } from "@/lib/format";
-import type { Settlement, Recoup } from "@/db/schema";
+import type { Settlement, Recoup, Deal, Expense, TicketSale } from "@/db/schema";
 import { Logomark } from "@/components/brand/logo";
 
 const RECOUP_LABELS: Record<Recoup["category"], string> = {
@@ -130,20 +130,14 @@ export default async function SettlePage({
       )}
 
       <div className="space-y-6 mt-6">
-        {!calc.supported ? (
-          <UnsupportedDeal
-            dealType={calc.dealType}
-            deal={deal}
-            existingSettlement={settlement}
-            grossSoFar={grossSoFar}
-            totalFees={totalFees}
-            totalExpenses={totalExpenses}
-            ticketCount={ticketSales.reduce((s, t) => s + (t.qty ?? 0), 0)}
-            expenseRowCount={expenses.length}
-          />
-        ) : (
-          <SupportedSettlement calc={calc} existingSettlement={settlement} />
-        )}
+        <SettlementWorksheet
+          deal={deal}
+          expenses={expenses}
+          ticketSales={ticketSales}
+          calc={calc}
+          settlement={settlement}
+          venueCapacity={data.venue?.capacity ?? undefined}
+        />
 
         {recoups.length > 0 && <RecoupsSection recoups={recoups} />}
 
@@ -358,252 +352,296 @@ function LifecycleBar({
   );
 }
 
-function UnsupportedDeal({
-  dealType,
+// ── Unified two-column settlement worksheet (all deal types) ─────────────────
+
+const EXPENSE_LABELS: Record<string, string> = {
+  sound: "Sound", lights: "Lights", production: "Production",
+  hospitality: "Hospitality", marketing: "Marketing",
+  backline: "Backline", security: "Security", other: "Other",
+};
+
+const RECOUP_BASIS_SHORT: Record<string, string> = {
+  against_gross: "deducted from gross",
+  outside_cap:   "outside expense cap",
+  inside_cap:    "inside expense cap",
+};
+
+const HOSP_OVERAGE_SHORT: Record<string, string> = {
+  venue_absorbs:  "venue absorbs overage",
+  artist_absorbs: "charged to artist",
+  split:          "split 50/50",
+};
+
+const DEAL_TYPE_LABEL: Record<string, string> = {
+  flat:               "Flat guarantee",
+  percentage_of_gross:"Percentage of gross",
+  percentage_of_net:  "Percentage of net",
+  vs:                 "Vs deal",
+  door:               "Door deal",
+};
+
+function SettlementWorksheet({
   deal,
-  existingSettlement,
-  grossSoFar,
-  totalFees,
-  totalExpenses,
-  ticketCount,
-  expenseRowCount,
-}: {
-  dealType: string;
-  deal: NonNullable<Awaited<ReturnType<typeof getShowById>>>["deal"];
-  existingSettlement: NonNullable<
-    Awaited<ReturnType<typeof getShowById>>
-  >["settlement"];
-  grossSoFar: number;
-  totalFees: number;
-  totalExpenses: number;
-  ticketCount: number;
-  expenseRowCount: number;
-}) {
-  const friendly: Record<string, string> = {
-    flat: "flat guarantee",
-    percentage_of_gross: "percentage of gross",
-    percentage_of_net: "percentage of net",
-    vs: "vs deal",
-    door: "door deal",
-  };
-
-  return (
-    <>
-      <Card accent="amber">
-        <CardContent className="py-12 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 ring-1 ring-amber-200/80 mb-5">
-            <FileWarning className="h-5 w-5 text-amber-700" />
-          </div>
-          <h2 className="font-display text-[22px] font-medium text-ink-900 mb-2" style={{ letterSpacing: "-0.02em" }}>
-            The in-app tool can&apos;t settle a {friendly[dealType] ?? dealType} yet.
-          </h2>
-          <p className="text-[13px] text-ink-500 max-w-md mx-auto leading-relaxed">
-            Mariana would do this on a Google Sheet at 2am tonight. The inputs
-            are below — but the math doesn&apos;t happen here.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>What the system has</CardTitle>
-            <CardDescription>
-              The inputs Mariana would pull together to settle this show.
-              They&apos;re here — but disconnected from the deal terms.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <Field
-              label="Gross box office"
-              mono
-              value={formatMoney(grossSoFar)}
-            />
-            <Field label="Fees" mono value={formatMoney(totalFees)} />
-            <Field
-              label="Net box office"
-              mono
-              value={formatMoney(grossSoFar - totalFees)}
-            />
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <Field label="Tickets sold" mono value={String(ticketCount)} />
-            <Field
-              label="Expenses (line items)"
-              mono
-              value={String(expenseRowCount)}
-            />
-            <Field
-              label="Expenses (passed through)"
-              mono
-              value={formatMoney(totalExpenses)}
-            />
-          </div>
-
-          {deal?.dealNotesFreetext && (
-            <div className="mt-6">
-              <div className="eyebrow text-[10px] text-ink-500 mb-2">
-                Deal notes (free text — what Mariana actually trusts)
-              </div>
-              <div className="text-[12.5px] text-ink-800 bg-canvas-soft rounded-lg p-4 ring-1 ring-ink-200/60 leading-relaxed">
-                {deal.dealNotesFreetext}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {existingSettlement?.totalToArtist != null && (
-        <Card
-          accent={existingSettlement.status === "disputed" ? "rose" : "brand"}
-        >
-          <CardHeader>
-            <div>
-              <CardTitle>Actually settled (off-platform)</CardTitle>
-              <CardDescription>
-                Mariana ran this in a spreadsheet. Here&apos;s the result that
-                was logged back into Greenroom afterward.
-              </CardDescription>
-            </div>
-            {existingSettlement.status === "disputed" ? (
-              <PlainBadge variant="rose">Disputed</PlainBadge>
-            ) : (
-              <PlainBadge variant="brand">Signed</PlainBadge>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline justify-between py-2">
-              <span className="text-[13px] text-ink-600">Total to artist</span>
-              <span className="text-[32px] font-mono tabular font-semibold text-ink-900" style={{ letterSpacing: "-0.02em" }}>
-                {formatMoney(existingSettlement.totalToArtist)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  );
-}
-
-function SupportedSettlement({
+  expenses,
+  ticketSales,
   calc,
-  existingSettlement,
+  settlement,
 }: {
-  calc: Extract<
-    ReturnType<typeof calculateSettlement>,
-    { supported: true }
-  >;
-  existingSettlement: NonNullable<
-    Awaited<ReturnType<typeof getShowById>>
-  >["settlement"];
+  deal: Deal;
+  expenses: Expense[];
+  ticketSales: TicketSale[];
+  calc: ReturnType<typeof calculateSettlement>;
+  settlement: Settlement | null;
+  venueCapacity?: number;
 }) {
+  const grossBoxOffice  = ticketSales.reduce((s, t) => s + t.gross, 0);
+  const totalFees       = ticketSales.reduce((s, t) => s + t.fees, 0);
+  const netBoxOffice    = grossBoxOffice - totalFees;
+
+  const passedThrough   = expenses.filter((e) => !e.absorbedByVenue);
+  const totalExpenses   = passedThrough.reduce((s, e) => s + e.amount, 0);
+  const cappedExpenses  = deal.expenseCap
+    ? Math.min(totalExpenses, deal.expenseCap)
+    : totalExpenses;
+  const netAfterExp     = netBoxOffice - cappedExpenses;
+
+  // Per-category expense breakdown
+  const byCategory: Record<string, number> = {};
+  for (const e of passedThrough) {
+    byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
+  }
+  const hospActual  = byCategory.hospitality ?? 0;
+  const hospOverage = deal.hospitalityCap
+    ? Math.max(0, hospActual - deal.hospitalityCap)
+    : 0;
+
+  // Final total: prefer the system-calculated value; fall back to manually entered
+  const calcTotal = calc.supported ? calc.totalToArtist : null;
+  const finalTotal = calcTotal ?? settlement?.totalToArtist ?? null;
+
+  // Agreed column strings
+  const agreedCalc = (() => {
+    switch (deal.dealType) {
+      case "flat":
+        return deal.guaranteeAmount != null
+          ? `Flat guarantee · ${formatMoney(deal.guaranteeAmount)}`
+          : "Flat guarantee";
+      case "percentage_of_gross":
+        return deal.percentage != null
+          ? `${(deal.percentage * 100).toFixed(0)}% of gross`
+          : "% of gross";
+      case "percentage_of_net":
+        return deal.percentage != null
+          ? `${(deal.percentage * 100).toFixed(0)}% of net after expenses`
+          : "% of net";
+      case "vs":
+        return deal.guaranteeAmount != null && deal.percentage != null
+          ? `${formatMoney(deal.guaranteeAmount)} guarantee vs ${(deal.percentage * 100).toFixed(0)}% of net — whichever greater`
+          : "Guarantee vs % of net";
+      case "door":
+        return "Artist receives gross minus capped expenses";
+      default:
+        return "—";
+    }
+  })();
+
+  // Actual calculation detail for artist row
+  const actualCalcDetail = (() => {
+    if (!calc.supported) return settlement?.totalToArtist != null
+      ? `${formatMoney(settlement.totalToArtist)} (settled off-platform)`
+      : "— (calculated off-platform)";
+    if (deal.dealType === "vs") {
+      const pct    = netAfterExp * (deal.percentage ?? 0);
+      const gtee   = deal.guaranteeAmount ?? 0;
+      const winner = pct >= gtee ? "% wins" : "guarantee wins";
+      return `${formatMoney(Math.max(pct, gtee))} · ${winner}`;
+    }
+    return formatMoney(calc.totalToArtist);
+  })();
+
+  const bonusesNotTriggered = calc.supported ? calc.bonusesNotTriggered : [];
+  const bonusesApplied      = calc.supported ? calc.bonusesApplied      : [];
+
   return (
     <>
-      {/* Hero number */}
+      {/* Hero number — kept exactly as before */}
       <div className="text-center py-10 mb-2">
         <div className="eyebrow text-[10px] text-ink-400 mb-3">Total to artist</div>
-        <div
-          className="text-[72px] font-mono tabular font-bold text-ink-900 leading-none"
-          style={{ letterSpacing: "-0.03em" }}
-        >
-          {formatMoney(calc.totalToArtist)}
+        <div className="text-[72px] font-mono tabular font-bold text-ink-900 leading-none"
+          style={{ letterSpacing: "-0.03em" }}>
+          {finalTotal != null ? formatMoney(finalTotal) : "—"}
         </div>
-        {existingSettlement && (
-          <div className="mt-3">
-            {existingSettlement.status === "paid" ? (
-              <PlainBadge variant="brand">Paid</PlainBadge>
-            ) : existingSettlement.status === "signed" ||
-              existingSettlement.status === "finalized" ? (
-              <PlainBadge variant="brand">Signed</PlainBadge>
-            ) : existingSettlement.status === "disputed" ? (
-              <PlainBadge variant="rose">Disputed</PlainBadge>
-            ) : null}
-          </div>
-        )}
-        {existingSettlement?.totalToArtist != null &&
-          existingSettlement.totalToArtist !== calc.totalToArtist && (
-          <div className="text-[12px] text-ink-400 mt-2">
-            Originally settled at{" "}
-            <span className="font-mono tabular text-ink-600">
-              {formatMoney(existingSettlement.totalToArtist)}
-            </span>
+        {settlement && (
+          <div className="mt-3 flex items-center justify-center gap-2">
+            {settlement.status === "paid"      && <PlainBadge variant="brand">Paid</PlainBadge>}
+            {(settlement.status === "signed" || settlement.status === "finalized") && <PlainBadge variant="brand">Signed</PlainBadge>}
+            {settlement.status === "disputed"  && <PlainBadge variant="rose">Disputed</PlainBadge>}
+            {!calc.supported && (
+              <span className="text-[11px] text-ink-400 flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                {DEAL_TYPE_LABEL[deal.dealType] ?? deal.dealType} · settled off-platform
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {/* Worksheet breakdown */}
+      {/* Two-column worksheet */}
       <Card accent="brand">
         <CardHeader>
           <div>
             <CardTitle>Settlement worksheet</CardTitle>
-            <CardDescription className="font-mono">
-              {calc.finalFormula}
+            <CardDescription>
+              Agreed deal terms alongside actual show numbers — line by line.
             </CardDescription>
           </div>
+          <DealTypeBadge type={deal.dealType} />
         </CardHeader>
-        <CardContent className="divide-y divide-ink-100/80">
-          <Row
-            label="Gross box office"
-            value={formatMoney(calc.grossBoxOffice)}
-          />
-          <Row label="Net box office" value={formatMoney(calc.netBoxOffice)} />
-          <Row
-            label="Total expenses (passed through)"
-            value={formatMoney(calc.totalExpenses)}
-          />
-          <div className="pt-3" />
-          {calc.steps.map((step, i) => (
-            <Row
-              key={i}
-              label={step.label}
-              value={formatMoney(step.value)}
-              note={step.note}
-            />
-          ))}
-          <div className="pt-3" />
-          <div className="flex items-baseline justify-between py-3 font-semibold">
-            <span className="text-[13px] text-ink-900">Total to artist</span>
-            <span className="text-[18px] font-mono tabular text-ink-900">
-              {formatMoney(calc.totalToArtist)}
-            </span>
-          </div>
+        <CardContent className="px-0 pb-0">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="border-b border-ink-100/80">
+                <th className="px-5 py-2.5 text-left eyebrow text-[9px] text-ink-400 font-semibold w-[38%]">Line item</th>
+                <th className="px-5 py-2.5 text-left eyebrow text-[9px] text-ink-400 font-semibold w-[35%]">Agreed</th>
+                <th className="px-5 py-2.5 text-right eyebrow text-[9px] text-ink-400 font-semibold w-[27%]">Actual</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100/60">
+
+              {/* ── Box office ─────────────────────────────────── */}
+              <WRow label="Gross box office"
+                agreed="From integrated ticketing"
+                actual={<span className="text-green-700 font-medium">+ {formatMoney(grossBoxOffice)}</span>} />
+              <WRow label="Platform fees"
+                agreed="Per ticketing agreement"
+                actual={<span className="text-rose-600">− {formatMoney(totalFees)}</span>} />
+              <WRowTotal label="Net box office" value={formatMoney(netBoxOffice)} />
+
+              {/* ── Expenses ───────────────────────────────────── */}
+              {Object.entries(byCategory).map(([cat, amt]) => {
+                const isHosp = cat === "hospitality";
+                const cap    = isHosp ? deal.hospitalityCap : null;
+                const over   = isHosp && cap ? Math.max(0, amt - cap) : 0;
+                const agreedStr = isHosp && cap
+                  ? `Cap ${formatMoney(cap)}${deal.hospitalityOverageRule ? ` · ${HOSP_OVERAGE_SHORT[deal.hospitalityOverageRule]}` : ""}`
+                  : cap ? `Within expense cap ${formatMoney(deal.expenseCap ?? 0)}` : "Passed through";
+                return (
+                  <WRow key={cat}
+                    label={`${EXPENSE_LABELS[cat] ?? cat}`}
+                    agreed={agreedStr}
+                    actual={
+                      <span className="flex flex-col items-end gap-0.5">
+                        <span className="text-rose-600">− {formatMoney(amt)}</span>
+                        {over > 0 && (
+                          <span className="text-[10px] text-amber-600 font-medium">
+                            {formatMoney(over)} over cap
+                          </span>
+                        )}
+                      </span>
+                    }
+                    indent
+                  />
+                );
+              })}
+              {deal.expenseCap && totalExpenses > deal.expenseCap && (
+                <WRow label="Expense cap applied"
+                  agreed={`Cap ${formatMoney(deal.expenseCap)}`}
+                  actual={<span className="text-amber-600 text-[11px]">Capped at {formatMoney(cappedExpenses)} · saved {formatMoney(totalExpenses - cappedExpenses)}</span>} />
+              )}
+              <WRowTotal label="Net after expenses" value={formatMoney(netAfterExp)} />
+
+              {/* ── Artist calculation ─────────────────────────── */}
+              <WRow label="Artist calculation"
+                agreed={agreedCalc}
+                actual={<span className="font-medium text-ink-900">{actualCalcDetail}</span>} />
+
+              {/* ── Bonuses ────────────────────────────────────── */}
+              {bonusesApplied.map((b, i) => (
+                <WRow key={`ba-${i}`}
+                  label={b.label}
+                  agreed="Bonus triggered ✅"
+                  actual={<span className="text-green-700 font-medium">+ {formatMoney(b.amount)}</span>} />
+              ))}
+              {bonusesNotTriggered.map((b, i) => (
+                <WRow key={`bn-${i}`}
+                  label={b.label}
+                  agreed={b.reason}
+                  actual={<span className="text-ink-300 line-through">{formatMoney(b.amount)}</span>} />
+              ))}
+
+              {/* ── Marketing recoup ───────────────────────────── */}
+              {deal.recoupBasis && (
+                <WRow label="Marketing recoup"
+                  agreed={`${RECOUP_BASIS_SHORT[deal.recoupBasis] ?? deal.recoupBasis}`}
+                  actual={settlement?.recoupsJson
+                    ? (() => {
+                        try {
+                          const recs = JSON.parse(settlement.recoupsJson);
+                          const mkt  = Array.isArray(recs)
+                            ? recs.filter((r: Recoup) => r.category === "marketing")
+                            : [];
+                          const total = mkt.reduce((s: number, r: Recoup) => s + r.amount, 0);
+                          if (total === 0) return <span className="text-ink-400">—</span>;
+                          const disputed = mkt.some((r: Recoup) => r.status === "disputed");
+                          return (
+                            <span className={`flex flex-col items-end gap-0.5 ${disputed ? "text-rose-600" : "text-rose-500"}`}>
+                              <span>− {formatMoney(total)}</span>
+                              {disputed && <span className="text-[10px] font-medium">disputed</span>}
+                            </span>
+                          );
+                        } catch { return <span className="text-ink-400">—</span>; }
+                      })()
+                    : <span className="text-ink-400">—</span>
+                  } />
+              )}
+
+            </tbody>
+            {/* ── Total row ──────────────────────────────────────── */}
+            <tfoot>
+              <tr className="border-t-2 border-ink-200/80 bg-canvas-soft/50">
+                <td className="px-5 py-4 text-[13.5px] font-semibold text-ink-900">Total to artist</td>
+                <td className="px-5 py-4 text-[11px] text-ink-400">
+                  {calc.supported ? "Calculated by system" : "Entered off-platform"}
+                </td>
+                <td className="px-5 py-4 text-right font-mono tabular font-bold text-[18px] text-ink-900">
+                  {finalTotal != null ? formatMoney(finalTotal) : "—"}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </CardContent>
       </Card>
-
-      {calc.bonusesNotTriggered.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Bonuses not triggered</CardTitle>
-            <CardDescription>
-              Structured bonuses on this deal that didn&apos;t hit. Shown for
-              transparency — useful when the agent asks &quot;what about that
-              gross threshold bonus?&quot;
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="divide-y divide-ink-100/80">
-            {calc.bonusesNotTriggered.map((b, i) => (
-              <div
-                key={i}
-                className="py-3 flex items-baseline justify-between gap-4"
-              >
-                <div className="min-w-0">
-                  <div className="text-[13px] text-ink-600">{b.label}</div>
-                  <div className="text-[11.5px] text-ink-400 mt-0.5">
-                    {b.reason}
-                  </div>
-                </div>
-                <div className="text-[12.5px] text-ink-300 font-mono tabular line-through">
-                  {formatMoney(b.amount)}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
     </>
+  );
+}
+
+// ── Worksheet row components ──────────────────────────────────────────────────
+
+function WRow({
+  label, agreed, actual, indent = false,
+}: {
+  label: string;
+  agreed: React.ReactNode;
+  actual: React.ReactNode;
+  indent?: boolean;
+}) {
+  return (
+    <tr className="hover:bg-ink-50/30 transition-colors">
+      <td className={`px-5 py-2.5 text-ink-700 ${indent ? "pl-8" : ""}`}>
+        {indent && <span className="text-ink-300 mr-1.5">└</span>}{label}
+      </td>
+      <td className="px-5 py-2.5 text-ink-400 text-[11.5px] leading-snug">{agreed}</td>
+      <td className="px-5 py-2.5 text-right font-mono tabular">{actual}</td>
+    </tr>
+  );
+}
+
+function WRowTotal({ label, value }: { label: string; value: string }) {
+  return (
+    <tr className="bg-ink-50/40">
+      <td className="px-5 py-2.5 text-[12.5px] font-semibold text-ink-900" colSpan={2}>{label}</td>
+      <td className="px-5 py-2.5 text-right font-mono tabular font-semibold text-[13.5px] text-ink-900">{value}</td>
+    </tr>
   );
 }
 
@@ -693,28 +731,3 @@ function SignoffSection({ settlement }: { settlement: Settlement }) {
   );
 }
 
-function Row({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note?: string;
-}) {
-  return (
-    <div className="flex items-baseline justify-between py-2.5">
-      <div>
-        <div className="text-[13px] text-ink-600">{label}</div>
-        {note && (
-          <div className="text-[11.5px] text-ink-400 mt-0.5 max-w-md leading-snug">
-            {note}
-          </div>
-        )}
-      </div>
-      <div className="text-[13.5px] text-ink-900 font-mono tabular">
-        {value}
-      </div>
-    </div>
-  );
-}
