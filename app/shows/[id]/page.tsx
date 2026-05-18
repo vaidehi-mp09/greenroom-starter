@@ -6,7 +6,9 @@ import {
   AlertCircle,
   Clock,
   TrendingUp,
+  Receipt,
 } from "lucide-react";
+import { VendorPanel } from "@/components/vendor-panel";
 import { getShowById } from "@/lib/queries";
 import {
   Card,
@@ -56,17 +58,18 @@ export default async function ShowDetailPage({
     ticketSales,
     expenses,
     comps,
+    vendors,
   } = data;
 
   const grossSoFar = ticketSales.reduce((sum, t) => sum + t.gross, 0);
   const totalFees = ticketSales.reduce((sum, t) => sum + t.fees, 0);
   const totalTickets = ticketSales.reduce((sum, t) => sum + (t.qty ?? 0), 0);
   const totalExpenses = expenses
-    .filter((e) => !e.absorbedByVenue)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => !e.expense.absorbedByVenue)
+    .reduce((sum, e) => sum + e.expense.amount, 0);
   const absorbedTotal = expenses
-    .filter((e) => e.absorbedByVenue)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => e.expense.absorbedByVenue)
+    .reduce((sum, e) => sum + e.expense.amount, 0);
 
   const totalCompCount = comps.reduce((s, c) => s + c.count, 0);
   const compsCountingTowardGross = comps
@@ -401,8 +404,13 @@ export default async function ShowDetailPage({
             </CardContent>
           </Card>
 
+          {/* Vendors */}
+          <Card className="md:col-span-1">
+            <VendorPanel showId={show.id} vendors={vendors} />
+          </Card>
+
           {/* Expenses */}
-          <Card className="md:col-span-3">
+          <Card className="md:col-span-2">
             <CardHeader>
               <div>
                 <CardTitle>Expenses</CardTitle>
@@ -426,12 +434,13 @@ export default async function ShowDetailPage({
                   <thead>
                     <tr className="text-left border-b border-ink-100/80">
                       <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Category</th>
+                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Vendor</th>
                       <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Description</th>
                       <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-right">Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink-100/60">
-                    {expenses.map((e) => (
+                    {expenses.map(({ expense: e, vendor: v }) => (
                       <tr key={e.id}>
                         <td className="py-2.5 capitalize">
                           {e.category}
@@ -439,12 +448,26 @@ export default async function ShowDetailPage({
                             <PlainBadge variant="amber" className="ml-2">absorbed</PlainBadge>
                           )}
                         </td>
+                        <td className="py-2.5 text-ink-500">
+                          {v ? (
+                            <span className="flex items-center gap-1">
+                              {v.name}
+                              {e.receiptParsed && (
+                                <span title="Parsed from receipt">
+                                  <Receipt className="h-3 w-3 text-brand-500" />
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-ink-300">—</span>
+                          )}
+                        </td>
                         <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
                         <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
                       </tr>
                     ))}
                     <tr className="font-medium">
-                      <td className="py-3" colSpan={2}>Total (passed through)</td>
+                      <td className="py-3" colSpan={3}>Total (passed through)</td>
                       <td className="py-3 text-right font-mono tabular">{formatMoney(totalExpenses)}</td>
                     </tr>
                   </tbody>

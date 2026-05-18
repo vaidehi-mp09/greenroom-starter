@@ -48,8 +48,11 @@ export default async function SettlePage({
   const data = await getShowById(id);
   if (!data) notFound();
 
-  const { show, artist, deal, ticketSales, expenses, settlement, recoups } =
+  const { show, artist, deal, ticketSales, expenses: expenseRows, settlement, recoups } =
     data;
+
+  // Flatten to plain expense objects for settlement calculation
+  const expenses = expenseRows.map((r) => r.expense);
 
   if (!deal) {
     return (

@@ -177,6 +177,37 @@ export const comps = sqliteTable("comps", {
   notes: text("notes"),
 });
 
+// -------- Vendors --------
+
+/**
+ * Vendors are external service providers attached to a specific show —
+ * sound crew, lighting company, hospitality supplier, marketing agency, etc.
+ * They can submit receipts directly via the app; the Anthropic API parses
+ * the receipt and auto-populates the expense ledger.
+ */
+export const vendors = sqliteTable("vendors", {
+  id: text("id").primaryKey(),
+  showId: text("show_id")
+    .notNull()
+    .references(() => shows.id),
+  name: text("name").notNull(),
+  category: text("category", {
+    enum: [
+      "production",
+      "sound",
+      "lights",
+      "hospitality",
+      "marketing",
+      "backline",
+      "security",
+      "other",
+    ],
+  }).notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 // -------- Expenses --------
 
 export const expenses = sqliteTable("expenses", {
@@ -204,6 +235,10 @@ export const expenses = sqliteTable("expenses", {
     .default(false),
   enteredByUserId: text("entered_by_user_id").references(() => users.id),
   enteredAt: integer("entered_at", { mode: "timestamp" }).notNull(),
+  // Vendor receipt fields
+  vendorId: text("vendor_id").references(() => vendors.id),
+  receiptRaw: text("receipt_raw"),       // base64 image or pasted text
+  receiptParsed: integer("receipt_parsed", { mode: "boolean" }).default(false),
 });
 
 // -------- Settlements --------
@@ -294,6 +329,7 @@ export type TicketSale = typeof ticketSales.$inferSelect;
 export type Comp = typeof comps.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Settlement = typeof settlements.$inferSelect;
+export type Vendor = typeof vendors.$inferSelect;
 
 // -------- Decoded JSON helpers --------
 
