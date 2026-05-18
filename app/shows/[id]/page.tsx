@@ -461,60 +461,96 @@ export default async function ShowDetailPage({
               )}
             </CardHeader>
             <CardContent>
-              {expenses.length === 0 ? (
-                <div className="text-[13px] text-ink-400">
-                  No expenses entered yet.
-                </div>
-              ) : (
-                <table className="w-full text-[13px]">
-                  <thead>
-                    <tr className="text-left border-b border-ink-100/80">
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Category</th>
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Vendor</th>
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Description</th>
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-right">Amount</th>
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-center">Upload receipt</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink-100/60">
-                    {expenses.map(({ expense: e, vendor: v }) => (
-                      <tr key={e.id}>
-                        <td className="py-2.5 capitalize">
-                          {e.category}
-                          {e.absorbedByVenue && (
-                            <PlainBadge variant="amber" className="ml-2">absorbed</PlainBadge>
-                          )}
-                        </td>
-                        <td className="py-2.5">
-                          <ExpenseVendorCell
-                            expenseId={e.id}
-                            showId={show.id}
-                            category={e.category}
-                            linkedVendor={v ?? null}
-                            showVendors={vendors}
-                            masterVendors={masterVendors}
-                          />
-                        </td>
-                        <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
-                        <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
-                        <td className="py-2.5 text-center">
-                          <ExpenseReceiptUpload
-                            expenseId={e.id}
-                            showId={show.id}
-                            vendor={v ?? null}
-                            showVendors={vendors}
-                            alreadyParsed={e.receiptParsed ?? false}
-                          />
-                        </td>
+              {(() => {
+                // Vendor placeholder rows — vendors whose category has no expense yet
+                const coveredCategories = new Set(expenses.map((e) => e.expense.category));
+                const vendorPlaceholders = vendors.filter(
+                  (v) => !coveredCategories.has(v.category)
+                );
+                const hasRows = expenses.length > 0 || vendorPlaceholders.length > 0;
+
+                if (!hasRows) {
+                  return (
+                    <div className="text-[13px] text-ink-400">
+                      No expenses or vendors registered yet. Add a vendor above to get started.
+                    </div>
+                  );
+                }
+
+                return (
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="text-left border-b border-ink-100/80">
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Category</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Vendor</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-center">Upload receipt</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Description</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-right">Amount</th>
                       </tr>
-                    ))}
-                    <tr className="font-medium">
-                      <td className="py-3" colSpan={4}>Total (passed through)</td>
-                      <td className="py-3 text-right font-mono tabular">{formatMoney(totalExpenses)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              )}
+                    </thead>
+                    <tbody className="divide-y divide-ink-100/60">
+
+                      {/* Existing expense rows */}
+                      {expenses.map(({ expense: e, vendor: v }) => (
+                        <tr key={e.id}>
+                          <td className="py-2.5 capitalize">
+                            {e.category}
+                            {e.absorbedByVenue && (
+                              <PlainBadge variant="amber" className="ml-2">absorbed</PlainBadge>
+                            )}
+                          </td>
+                          <td className="py-2.5">
+                            <ExpenseVendorCell
+                              expenseId={e.id}
+                              showId={show.id}
+                              category={e.category}
+                              linkedVendor={v ?? null}
+                              showVendors={vendors}
+                              masterVendors={masterVendors}
+                            />
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <ExpenseReceiptUpload
+                              showId={show.id}
+                              vendor={v ?? null}
+                              showVendors={vendors}
+                              alreadyParsed={e.receiptParsed ?? false}
+                            />
+                          </td>
+                          <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
+                          <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
+                        </tr>
+                      ))}
+
+                      {/* Vendor placeholder rows — no expense yet for this category */}
+                      {vendorPlaceholders.map((v) => (
+                        <tr key={`placeholder-${v.id}`} className="bg-ink-50/30">
+                          <td className="py-2.5 capitalize text-ink-500">{v.category}</td>
+                          <td className="py-2.5 text-ink-700">{v.name}</td>
+                          <td className="py-2.5 text-center">
+                            <ExpenseReceiptUpload
+                              showId={show.id}
+                              vendor={v}
+                              showVendors={vendors}
+                              alreadyParsed={false}
+                            />
+                          </td>
+                          <td className="py-2.5 text-ink-300">—</td>
+                          <td className="py-2.5 text-right font-mono tabular text-ink-300">—</td>
+                        </tr>
+                      ))}
+
+                      {/* Total row — only show if there are real expenses */}
+                      {expenses.length > 0 && (
+                        <tr className="font-medium">
+                          <td className="py-3" colSpan={4}>Total (passed through)</td>
+                          <td className="py-3 text-right font-mono tabular">{formatMoney(totalExpenses)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>

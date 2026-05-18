@@ -7,7 +7,7 @@ import { parseReceiptAndCreateExpense } from "@/app/actions/vendors";
 import type { Vendor } from "@/db/schema";
 
 interface Props {
-  expenseId: string;
+  expenseId?: string;   // optional — placeholder rows have no expense yet
   showId: string;
   vendor: Vendor | null;
   showVendors: Vendor[];
@@ -15,7 +15,6 @@ interface Props {
 }
 
 export function ExpenseReceiptUpload({
-  expenseId,
   showId,
   vendor,
   showVendors,
