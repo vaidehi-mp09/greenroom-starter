@@ -184,12 +184,18 @@ function buildHtml(data: DealTermsPrintData): string {
           : "—")}
       ${row("Expense cap", data.expenseCap != null ? fmt(data.expenseCap) : "—")}
       ${row("Hospitality cap", data.hospitalityCap != null ? fmt(data.hospitalityCap) : "—")}
-      ${data.recoupBasis
-          ? row("Marketing recoup", RECOUP_BASIS_LABELS[data.recoupBasis] ?? data.recoupBasis)
-          : ""}
-      ${data.hospitalityOverageRule
-          ? row("Hospitality overage", HOSP_OVERAGE_LABELS[data.hospitalityOverageRule] ?? data.hospitalityOverageRule)
-          : ""}
+      ${row(
+          "Marketing recoup",
+          data.recoupBasis
+            ? RECOUP_BASIS_LABELS[data.recoupBasis] ?? data.recoupBasis
+            : '<span style="color:#b45309;font-weight:600">⚠ Not agreed — clarify before settlement</span>'
+        )}
+      ${row(
+          "Hospitality overage",
+          data.hospitalityOverageRule
+            ? HOSP_OVERAGE_LABELS[data.hospitalityOverageRule] ?? data.hospitalityOverageRule
+            : '<span style="color:#b45309;font-weight:600">⚠ Not agreed — clarify before settlement</span>'
+        )}
     </table>
 
     ${bonusLines

@@ -215,23 +215,25 @@ export default async function ShowDetailPage({
                     />
                   </div>
 
-                  {/* Recoup basis + Hospitality overage rule */}
-                  {(deal.recoupBasis || deal.hospitalityOverageRule) && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {deal.recoupBasis && (
-                        <Field
-                          label="Marketing recoup"
-                          value={RECOUP_BASIS_LABELS[deal.recoupBasis]}
-                        />
-                      )}
-                      {deal.hospitalityOverageRule && (
-                        <Field
-                          label="Hosp. overage"
-                          value={HOSP_OVERAGE_LABELS[deal.hospitalityOverageRule]}
-                        />
-                      )}
-                    </div>
-                  )}
+                  {/* Recoup basis + Hospitality overage rule — always shown */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Field
+                      label="Marketing recoup"
+                      value={
+                        deal.recoupBasis
+                          ? RECOUP_BASIS_LABELS[deal.recoupBasis]
+                          : <NotAgreed />
+                      }
+                    />
+                    <Field
+                      label="Hosp. overage"
+                      value={
+                        deal.hospitalityOverageRule
+                          ? HOSP_OVERAGE_LABELS[deal.hospitalityOverageRule]
+                          : <NotAgreed />
+                      }
+                    />
+                  </div>
 
                   {bonuses.length > 0 && (
                     <div className="rounded-lg ring-1 ring-brand-200/50 bg-brand-50/20 p-4">
@@ -598,6 +600,17 @@ function MiniStat({
         {value}
       </div>
     </div>
+  );
+}
+
+// ── Not agreed indicator ──────────────────────────────────────────────────────
+
+function NotAgreed() {
+  return (
+    <span className="inline-flex items-center gap-1 text-amber-700 text-[12px] font-medium">
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+      Not agreed
+    </span>
   );
 }
 

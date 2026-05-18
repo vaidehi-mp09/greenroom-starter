@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -590,31 +591,73 @@ function SettlementWorksheet({
                   actual={<span className="text-ink-300 line-through">{formatMoney(b.amount)}</span>} />
               ))}
 
-              {/* ── Marketing recoup ───────────────────────────── */}
-              {deal.recoupBasis && (
-                <WRow label="Marketing recoup"
-                  agreed={`${RECOUP_BASIS_SHORT[deal.recoupBasis] ?? deal.recoupBasis}`}
-                  actual={settlement?.recoupsJson
-                    ? (() => {
-                        try {
-                          const recs = JSON.parse(settlement.recoupsJson);
-                          const mkt  = Array.isArray(recs)
-                            ? recs.filter((r: Recoup) => r.category === "marketing")
-                            : [];
-                          const total = mkt.reduce((s: number, r: Recoup) => s + r.amount, 0);
-                          if (total === 0) return <span className="text-ink-400">—</span>;
-                          const disputed = mkt.some((r: Recoup) => r.status === "disputed");
-                          return (
-                            <span className={`flex flex-col items-end gap-0.5 ${disputed ? "text-rose-600" : "text-rose-500"}`}>
-                              <span>− {formatMoney(total)}</span>
-                              {disputed && <span className="text-[10px] font-medium">disputed</span>}
-                            </span>
-                          );
-                        } catch { return <span className="text-ink-400">—</span>; }
-                      })()
-                    : <span className="text-ink-400">—</span>
-                  } />
-              )}
+              {/* ── Marketing recoup — always shown ────────────── */}
+              {(() => {
+                const agreedText = deal.recoupBasis
+                  ? RECOUP_BASIS_SHORT[deal.recoupBasis] ?? deal.recoupBasis
+                  : null;
+
+                // Parse actual recoup from settlement
+                let recoupActual: React.ReactNode = <span className="text-ink-400">—</span>;
+                if (settlement?.recoupsJson) {
+                  try {
+                    const recs = JSON.parse(settlement.recoupsJson);
+                    const mkt  = Array.isArray(recs)
+                      ? recs.filter((r: Recoup) => r.category === "marketing")
+                      : [];
+                    const total = mkt.reduce((s: number, r: Recoup) => s + r.amount, 0);
+                    if (total > 0) {
+                      const disputed = mkt.some((r: Recoup) => r.status === "disputed");
+                      recoupActual = (
+                        <span className={`flex flex-col items-end gap-0.5 ${disputed ? "text-rose-600" : "text-rose-500"}`}>
+                          <span>− {formatMoney(total)}</span>
+                          {disputed && <span className="text-[10px] font-medium">disputed</span>}
+                        </span>
+                      );
+                    }
+                  } catch {/* ignore */}
+                }
+
+                return (
+                  <WRow
+                    label="Marketing recoup"
+                    agreed={
+                      agreedText
+                        ? agreedText
+                        : <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            Not agreed — clarify with agent
+                          </span>
+                    }
+                    actual={recoupActual}
+                  />
+                );
+              })()}
+
+              {/* ── Hospitality overage — always shown ─────────── */}
+              {(() => {
+                const agreedText = deal.hospitalityOverageRule
+                  ? HOSP_OVERAGE_SHORT[deal.hospitalityOverageRule] ?? deal.hospitalityOverageRule
+                  : null;
+                return (
+                  <WRow
+                    label="Hosp. overage rule"
+                    agreed={
+                      agreedText
+                        ? agreedText
+                        : <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            Not agreed — clarify with agent
+                          </span>
+                    }
+                    actual={
+                      deal.hospitalityCap != null
+                        ? <span className="text-ink-500 text-[11.5px]">cap {formatMoney(deal.hospitalityCap)}</span>
+                        : <span className="text-ink-400">—</span>
+                    }
+                  />
+                );
+              })()}
 
             </tbody>
             {/* ── Total row ──────────────────────────────────────── */}
