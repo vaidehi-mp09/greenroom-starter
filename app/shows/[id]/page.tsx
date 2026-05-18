@@ -10,6 +10,8 @@ import {
 import { VendorPanel } from "@/components/vendor-panel";
 import { ExpenseVendorCell } from "@/components/expense-vendor-cell";
 import { ExpenseReceiptUpload } from "@/components/expense-receipt-upload";
+import { DealTermsPrint } from "@/components/deal-terms-print";
+import type { DealTermsPrintData } from "@/components/deal-terms-print";
 import { getShowById } from "@/lib/queries";
 import {
   Card,
@@ -271,6 +273,38 @@ export default async function ShowDetailPage({
                       </div>
                     </div>
                   )}
+
+                  {/* Download deal terms PDF */}
+                  {(() => {
+                    const printData: DealTermsPrintData = {
+                      showDate:    show.date,
+                      venueName:   data.venue?.name ?? "The Crescent",
+                      venueCity:   data.venue?.city ?? "Nashville",
+                      venueCapacity: data.venue?.capacity ?? 650,
+                      artistName:  artist?.name ?? "—",
+                      artistGenre: artist?.genre ?? null,
+                      priorShowCount: artist?.priorShowCount ?? 0,
+                      agentName:   agent?.name ?? null,
+                      agencyName:  agency?.name ?? null,
+                      agentEmail:  agent?.email ?? null,
+                      agentPreferencesNotes: agent?.preferencesNotes ?? null,
+                      dealType:    deal.dealType,
+                      guaranteeAmount: deal.guaranteeAmount,
+                      percentage:  deal.percentage,
+                      percentageBasis: deal.percentageBasis,
+                      expenseCap:  deal.expenseCap,
+                      hospitalityCap: deal.hospitalityCap,
+                      recoupBasis: deal.recoupBasis ?? null,
+                      hospitalityOverageRule: deal.hospitalityOverageRule ?? null,
+                      bonusesJson: deal.bonusesJson,
+                      dealNotesFreetext: deal.dealNotesFreetext,
+                    };
+                    return (
+                      <div className="pt-2 border-t border-ink-100/80">
+                        <DealTermsPrint data={printData} />
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="text-[13px] text-ink-400">
