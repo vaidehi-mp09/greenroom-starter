@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { vendors, expenses } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createWorker } from "tesseract.js";
 // pdf-parse is CJS only — use require to avoid ESM default-export mismatch
@@ -35,6 +36,26 @@ export async function addVendor(formData: FormData) {
 
   revalidatePath(`/shows/${showId}`);
   return { success: true, vendorId: id };
+}
+
+// ── Assign a vendor to an existing expense ─────────────────────────────────
+
+export async function assignVendorToExpense(formData: FormData) {
+  const expenseId = formData.get("expenseId") as string;
+  const vendorId = formData.get("vendorId") as string;
+  const showId = formData.get("showId") as string;
+
+  if (!expenseId || !vendorId || !showId) {
+    return { error: "Missing required fields" };
+  }
+
+  await db
+    .update(expenses)
+    .set({ vendorId })
+    .where(eq(expenses.id, expenseId));
+
+  revalidatePath(`/shows/${showId}`);
+  return { success: true };
 }
 
 // ── OCR: extract text from image using Tesseract.js ────────────────────────

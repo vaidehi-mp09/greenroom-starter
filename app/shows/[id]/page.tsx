@@ -9,6 +9,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { VendorPanel } from "@/components/vendor-panel";
+import { ExpenseVendorCell } from "@/components/expense-vendor-cell";
 import { getShowById } from "@/lib/queries";
 import {
   Card,
@@ -448,19 +449,21 @@ export default async function ShowDetailPage({
                             <PlainBadge variant="amber" className="ml-2">absorbed</PlainBadge>
                           )}
                         </td>
-                        <td className="py-2.5 text-ink-500">
-                          {v ? (
-                            <span className="flex items-center gap-1">
-                              {v.name}
-                              {e.receiptParsed && (
-                                <span title="Parsed from receipt">
-                                  <Receipt className="h-3 w-3 text-brand-500" />
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-ink-300">—</span>
-                          )}
+                        <td className="py-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <ExpenseVendorCell
+                              expenseId={e.id}
+                              showId={show.id}
+                              category={e.category}
+                              vendor={v ?? null}
+                              showVendors={vendors}
+                            />
+                            {e.receiptParsed && (
+                              <span title="Populated from vendor receipt">
+                                <Receipt className="h-3 w-3 text-brand-500 shrink-0" />
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
                         <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
