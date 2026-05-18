@@ -125,6 +125,22 @@ export const deals = sqliteTable("deals", {
   bonusesJson: text("bonuses_json"),
   dealNotesFreetext: text("deal_notes_freetext"),
 
+  /**
+   * recoupBasis — how marketing recoups are applied in the deal.
+   *
+   * inside_cap:    recoup counts toward and is capped by the expense cap
+   * outside_cap:   recoup is a separate deduction on top of the expense cap
+   * against_gross: recoup is deducted from gross before the % is calculated
+   * null:          no marketing recoup in this deal
+   *
+   * This was the source of the Coastal Spell $720 dispute (March 2025) —
+   * the deal email said "marketing recoup of $900 against gross" but the
+   * structured field didn't exist, so both parties had different reads.
+   */
+  recoupBasis: text("recoup_basis", {
+    enum: ["inside_cap", "outside_cap", "against_gross"],
+  }),
+
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
