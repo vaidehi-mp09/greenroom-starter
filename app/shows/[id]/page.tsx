@@ -280,7 +280,7 @@ export default async function ShowDetailPage({
             </CardContent>
           </Card>
 
-          {/* Artist & agent + Vendors */}
+          {/* Artist & agent */}
           <Card>
             <CardHeader>
               <CardTitle>Artist & agent</CardTitle>
@@ -316,27 +316,6 @@ export default async function ShowDetailPage({
                   </div>
                 </div>
               )}
-
-              {/* Vendors — same format as above fields */}
-              <div className="border-t border-ink-100/80 pt-4 space-y-4">
-                <div className="eyebrow text-[10px] text-ink-400 uppercase tracking-widest">Vendors</div>
-                {vendors.length === 0 ? (
-                  <div className="text-[13px] text-ink-400">No vendors registered yet.</div>
-                ) : (
-                  vendors.map((v) => (
-                    <Field
-                      key={v.id}
-                      label={VENDOR_CATEGORY_LABELS[v.category] ?? v.category}
-                      value={
-                        v.contactName
-                          ? `${v.name} · ${v.contactName}`
-                          : v.name
-                      }
-                    />
-                  ))
-                )}
-                <VendorPanel showId={show.id} vendors={vendors} compact />
-              </div>
             </CardContent>
           </Card>
 
@@ -445,8 +424,17 @@ export default async function ShowDetailPage({
             </CardContent>
           </Card>
 
+          {/* Vendors — standalone card, left of expenses */}
+          <Card className="md:col-span-1">
+            <VendorPanel
+              showId={show.id}
+              vendors={vendors}
+              masterVendors={masterVendors}
+            />
+          </Card>
+
           {/* Expenses */}
-          <Card className="md:col-span-3">
+          <Card className="md:col-span-2">
             <CardHeader>
               <div>
                 <CardTitle>Expenses</CardTitle>
