@@ -215,38 +215,18 @@ export default async function ShowDetailPage({
 
                   {/* Recoup basis + Hospitality overage rule */}
                   {(deal.recoupBasis || deal.hospitalityOverageRule) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {deal.recoupBasis && (
-                        <div className="rounded-lg ring-1 ring-ink-200/50 bg-canvas-soft p-3 flex items-start gap-3">
-                          <div className="mt-0.5 shrink-0">
-                            <RecoupBasisIcon basis={deal.recoupBasis} />
-                          </div>
-                          <div>
-                            <div className="eyebrow text-[10px] text-ink-500 mb-1">Marketing recoup</div>
-                            <div className="text-[12.5px] font-medium text-ink-900">
-                              {RECOUP_BASIS_LABELS[deal.recoupBasis]}
-                            </div>
-                            <div className="text-[11px] text-ink-400 mt-0.5 leading-snug">
-                              {RECOUP_BASIS_DESC[deal.recoupBasis]}
-                            </div>
-                          </div>
-                        </div>
+                        <Field
+                          label="Marketing recoup"
+                          value={RECOUP_BASIS_LABELS[deal.recoupBasis]}
+                        />
                       )}
                       {deal.hospitalityOverageRule && (
-                        <div className="rounded-lg ring-1 ring-ink-200/50 bg-canvas-soft p-3 flex items-start gap-3">
-                          <div className="mt-0.5 shrink-0">
-                            <HospOverageIcon rule={deal.hospitalityOverageRule} />
-                          </div>
-                          <div>
-                            <div className="eyebrow text-[10px] text-ink-500 mb-1">Hospitality overage</div>
-                            <div className="text-[12.5px] font-medium text-ink-900">
-                              {HOSP_OVERAGE_LABELS[deal.hospitalityOverageRule]}
-                            </div>
-                            <div className="text-[11px] text-ink-400 mt-0.5 leading-snug">
-                              {HOSP_OVERAGE_DESC[deal.hospitalityOverageRule]}
-                            </div>
-                          </div>
-                        </div>
+                        <Field
+                          label="Hosp. overage"
+                          value={HOSP_OVERAGE_LABELS[deal.hospitalityOverageRule]}
+                        />
                       )}
                     </div>
                   )}
@@ -547,65 +527,17 @@ function MiniStat({
 
 const RECOUP_BASIS_LABELS: Record<string, string> = {
   against_gross: "Deducted from gross",
-  outside_cap:  "Outside expense cap",
-  inside_cap:   "Inside expense cap",
+  outside_cap:   "Outside expense cap",
+  inside_cap:    "Inside expense cap",
 };
-
-const RECOUP_BASIS_DESC: Record<string, string> = {
-  against_gross: "Taken off gross box office before the artist % is calculated.",
-  outside_cap:   "Separate deduction on top of the expense cap.",
-  inside_cap:    "Counts toward and is bounded by the expense cap ceiling.",
-};
-
-function RecoupBasisIcon({ basis }: { basis: string }) {
-  const colours: Record<string, string> = {
-    against_gross: "bg-rose-100 text-rose-700",
-    outside_cap:   "bg-amber-100 text-amber-700",
-    inside_cap:    "bg-green-100 text-green-700",
-  };
-  const labels: Record<string, string> = {
-    against_gross: "−G",
-    outside_cap:   "+E",
-    inside_cap:    "⊂E",
-  };
-  return (
-    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[10px] font-mono font-bold ${colours[basis] ?? "bg-ink-100 text-ink-600"}`}>
-      {labels[basis] ?? "?"}
-    </span>
-  );
-}
 
 // ── Hospitality overage rule ──────────────────────────────────────────────────
 
 const HOSP_OVERAGE_LABELS: Record<string, string> = {
-  venue_absorbs:   "Venue absorbs overage",
-  artist_absorbs:  "Artist absorbs overage",
-  split:           "Split 50 / 50",
+  venue_absorbs:  "Venue absorbs",
+  artist_absorbs: "Artist absorbs",
+  split:          "Split 50 / 50",
 };
-
-const HOSP_OVERAGE_DESC: Record<string, string> = {
-  venue_absorbs:  "Anything over the hospitality cap comes out of venue revenue.",
-  artist_absorbs: "Overage is deducted from the artist payout at settlement.",
-  split:          "Overage split equally between venue and artist.",
-};
-
-function HospOverageIcon({ rule }: { rule: string }) {
-  const colours: Record<string, string> = {
-    venue_absorbs:  "bg-blue-100 text-blue-700",
-    artist_absorbs: "bg-purple-100 text-purple-700",
-    split:          "bg-teal-100 text-teal-700",
-  };
-  const labels: Record<string, string> = {
-    venue_absorbs:  "V",
-    artist_absorbs: "A",
-    split:          "½",
-  };
-  return (
-    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-mono font-bold ${colours[rule] ?? "bg-ink-100 text-ink-600"}`}>
-      {labels[rule] ?? "?"}
-    </span>
-  );
-}
 
 function BonusBadge({ type }: { type: Bonus["type"] }) {
   const labels: Record<Bonus["type"], string> = {
