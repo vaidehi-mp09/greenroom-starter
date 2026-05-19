@@ -125,6 +125,38 @@ export const deals = sqliteTable("deals", {
   bonusesJson: text("bonuses_json"),
   dealNotesFreetext: text("deal_notes_freetext"),
 
+  /**
+   * hospitalityOverageRule — who absorbs hospitality spend above the cap.
+   *
+   * venue_absorbs:   venue eats the overage (current silent default — 107 shows, $10,258)
+   * artist_absorbs:  overage deducted from artist payout
+   * split:           overage split 50/50 between venue and artist
+   * null:            not discussed / no hospitality cap on this deal
+   *
+   * In practice this is almost never written into the deal email — the venue
+   * absorbs silently every time. Adding this field forces the conversation to
+   * happen at booking, not at 2am.
+   */
+  hospitalityOverageRule: text("hospitality_overage_rule", {
+    enum: ["venue_absorbs", "artist_absorbs", "split"],
+  }),
+
+  /**
+   * recoupBasis — how marketing recoups are applied in the deal.
+   *
+   * inside_cap:    recoup counts toward and is capped by the expense cap
+   * outside_cap:   recoup is a separate deduction on top of the expense cap
+   * against_gross: recoup is deducted from gross before the % is calculated
+   * null:          no marketing recoup in this deal
+   *
+   * This was the source of the Coastal Spell $720 dispute (March 2025) —
+   * the deal email said "marketing recoup of $900 against gross" but the
+   * structured field didn't exist, so both parties had different reads.
+   */
+  recoupBasis: text("recoup_basis", {
+    enum: ["inside_cap", "outside_cap", "against_gross"],
+  }),
+
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
@@ -177,6 +209,37 @@ export const comps = sqliteTable("comps", {
   notes: text("notes"),
 });
 
+// -------- Vendors --------
+
+/**
+ * Vendors are external service providers attached to a specific show —
+ * sound crew, lighting company, hospitality supplier, marketing agency, etc.
+ * They can submit receipts directly via the app; the Anthropic API parses
+ * the receipt and auto-populates the expense ledger.
+ */
+export const vendors = sqliteTable("vendors", {
+  id: text("id").primaryKey(),
+  // null = master/pre-onboarded vendor (not tied to a specific show)
+  // set = vendor registered for that specific show
+  showId: text("show_id").references(() => shows.id),
+  name: text("name").notNull(),
+  category: text("category", {
+    enum: [
+      "production",
+      "sound",
+      "lights",
+      "hospitality",
+      "marketing",
+      "backline",
+      "security",
+      "other",
+    ],
+  }).notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 // -------- Expenses --------
 
 export const expenses = sqliteTable("expenses", {
@@ -204,6 +267,10 @@ export const expenses = sqliteTable("expenses", {
     .default(false),
   enteredByUserId: text("entered_by_user_id").references(() => users.id),
   enteredAt: integer("entered_at", { mode: "timestamp" }).notNull(),
+  // Vendor receipt fields
+  vendorId: text("vendor_id").references(() => vendors.id),
+  receiptRaw: text("receipt_raw"),       // base64 image or pasted text
+  receiptParsed: integer("receipt_parsed", { mode: "boolean" }).default(false),
 });
 
 // -------- Settlements --------
@@ -294,6 +361,7 @@ export type TicketSale = typeof ticketSales.$inferSelect;
 export type Comp = typeof comps.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Settlement = typeof settlements.$inferSelect;
+export type Vendor = typeof vendors.$inferSelect;
 
 // -------- Decoded JSON helpers --------
 

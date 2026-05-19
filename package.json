@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx db/seed.ts",
-    "db:reset": "rm -f data/greenroom.db && drizzle-kit push && tsx db/seed.ts",
+    "db:seed:full": "tsx db/seed.ts && tsx db/backfill-recoup-basis.ts && tsx db/backfill-hospitality-overage.ts && tsx db/seed-vendors.ts && tsx db/seed-test-show.ts && tsx db/seed-test-shows.ts",
+    "db:reset": "rm -f data/greenroom.db && drizzle-kit push && npm run db:seed:full",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -21,9 +22,12 @@
     "geist": "^1.7.0",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "tesseract.js": "^7.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -14,9 +14,10 @@ import {
   expenses,
   settlements,
   venues,
+  vendors,
   type Recoup,
 } from "@/db/schema";
-import { desc, asc, eq, sql, lte } from "drizzle-orm";
+import { desc, asc, eq, sql, lte, isNull } from "drizzle-orm";
 
 function todayDateString(): string {
   const d = new Date();
@@ -65,18 +66,26 @@ export async function getShowById(id: string) {
   if (rows.length === 0) return null;
   const row = rows[0];
 
-  const [showTicketSales, showExpenses, showComps] = await Promise.all([
+  const [showTicketSales, showExpenses, showComps, showVendors, masterVendors] = await Promise.all([
     db
       .select()
       .from(ticketSales)
       .where(eq(ticketSales.showId, id))
       .orderBy(desc(ticketSales.capturedAt)),
     db
-      .select()
+      .select({
+        expense: expenses,
+        vendor: vendors,
+      })
       .from(expenses)
+      .leftJoin(vendors, eq(expenses.vendorId, vendors.id))
       .where(eq(expenses.showId, id))
       .orderBy(asc(expenses.enteredAt)),
     db.select().from(comps).where(eq(comps.showId, id)),
+    // Show-specific vendors (confirmed for this show)
+    db.select().from(vendors).where(eq(vendors.showId, id)),
+    // Master vendor pool (pre-onboarded, show_id = null) for the dropdown
+    db.select().from(vendors).where(isNull(vendors.showId)),
   ]);
 
   let recoups: Recoup[] = [];
@@ -94,6 +103,8 @@ export async function getShowById(id: string) {
     ticketSales: showTicketSales,
     expenses: showExpenses,
     comps: showComps,
+    vendors: showVendors,       // confirmed for this show
+    masterVendors,              // global pre-onboarded pool for dropdowns
     recoups,
   };
 }

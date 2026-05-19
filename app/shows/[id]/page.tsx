@@ -7,6 +7,11 @@ import {
   Clock,
   TrendingUp,
 } from "lucide-react";
+import { VendorPanel } from "@/components/vendor-panel";
+import { ExpenseVendorCell } from "@/components/expense-vendor-cell";
+import { ExpenseReceiptUpload } from "@/components/expense-receipt-upload";
+import { DealTermsPrint } from "@/components/deal-terms-print";
+import type { DealTermsPrintData } from "@/components/deal-terms-print";
 import { getShowById } from "@/lib/queries";
 import {
   Card,
@@ -56,17 +61,19 @@ export default async function ShowDetailPage({
     ticketSales,
     expenses,
     comps,
+    vendors,
+    masterVendors,
   } = data;
 
   const grossSoFar = ticketSales.reduce((sum, t) => sum + t.gross, 0);
   const totalFees = ticketSales.reduce((sum, t) => sum + t.fees, 0);
   const totalTickets = ticketSales.reduce((sum, t) => sum + (t.qty ?? 0), 0);
   const totalExpenses = expenses
-    .filter((e) => !e.absorbedByVenue)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => !e.expense.absorbedByVenue)
+    .reduce((sum, e) => sum + e.expense.amount, 0);
   const absorbedTotal = expenses
-    .filter((e) => e.absorbedByVenue)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => e.expense.absorbedByVenue)
+    .reduce((sum, e) => sum + e.expense.amount, 0);
 
   const totalCompCount = comps.reduce((s, c) => s + c.count, 0);
   const compsCountingTowardGross = comps
@@ -208,6 +215,26 @@ export default async function ShowDetailPage({
                     />
                   </div>
 
+                  {/* Recoup basis + Hospitality overage rule — always shown */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Field
+                      label="Marketing recoup"
+                      value={
+                        deal.recoupBasis
+                          ? RECOUP_BASIS_LABELS[deal.recoupBasis]
+                          : <NotAgreed />
+                      }
+                    />
+                    <Field
+                      label="Hosp. overage"
+                      value={
+                        deal.hospitalityOverageRule
+                          ? HOSP_OVERAGE_LABELS[deal.hospitalityOverageRule]
+                          : <NotAgreed />
+                      }
+                    />
+                  </div>
+
                   {bonuses.length > 0 && (
                     <div className="rounded-lg ring-1 ring-brand-200/50 bg-brand-50/20 p-4">
                       <div className="flex items-center gap-1.5 mb-2.5">
@@ -248,6 +275,38 @@ export default async function ShowDetailPage({
                       </div>
                     </div>
                   )}
+
+                  {/* Download deal terms PDF */}
+                  {(() => {
+                    const printData: DealTermsPrintData = {
+                      showDate:    show.date,
+                      venueName:   data.venue?.name ?? "The Crescent",
+                      venueCity:   data.venue?.city ?? "Nashville",
+                      venueCapacity: data.venue?.capacity ?? 650,
+                      artistName:  artist?.name ?? "—",
+                      artistGenre: artist?.genre ?? null,
+                      priorShowCount: artist?.priorShowCount ?? 0,
+                      agentName:   agent?.name ?? null,
+                      agencyName:  agency?.name ?? null,
+                      agentEmail:  agent?.email ?? null,
+                      agentPreferencesNotes: agent?.preferencesNotes ?? null,
+                      dealType:    deal.dealType,
+                      guaranteeAmount: deal.guaranteeAmount,
+                      percentage:  deal.percentage,
+                      percentageBasis: deal.percentageBasis,
+                      expenseCap:  deal.expenseCap,
+                      hospitalityCap: deal.hospitalityCap,
+                      recoupBasis: deal.recoupBasis ?? null,
+                      hospitalityOverageRule: deal.hospitalityOverageRule ?? null,
+                      bonusesJson: deal.bonusesJson,
+                      dealNotesFreetext: deal.dealNotesFreetext,
+                    };
+                    return (
+                      <div className="pt-2 border-t border-ink-100/80">
+                        <DealTermsPrint data={printData} />
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="text-[13px] text-ink-400">
@@ -401,8 +460,18 @@ export default async function ShowDetailPage({
             </CardContent>
           </Card>
 
+          {/* Vendors — standalone card, left of expenses */}
+          <Card className="md:col-span-1">
+            <VendorPanel
+              showId={show.id}
+              showDate={show.date}
+              vendors={vendors}
+              masterVendors={masterVendors}
+            />
+          </Card>
+
           {/* Expenses */}
-          <Card className="md:col-span-3">
+          <Card className="md:col-span-2">
             <CardHeader>
               <div>
                 <CardTitle>Expenses</CardTitle>
@@ -417,39 +486,96 @@ export default async function ShowDetailPage({
               )}
             </CardHeader>
             <CardContent>
-              {expenses.length === 0 ? (
-                <div className="text-[13px] text-ink-400">
-                  No expenses entered yet.
-                </div>
-              ) : (
-                <table className="w-full text-[13px]">
-                  <thead>
-                    <tr className="text-left border-b border-ink-100/80">
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Category</th>
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Description</th>
-                      <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink-100/60">
-                    {expenses.map((e) => (
-                      <tr key={e.id}>
-                        <td className="py-2.5 capitalize">
-                          {e.category}
-                          {e.absorbedByVenue && (
-                            <PlainBadge variant="amber" className="ml-2">absorbed</PlainBadge>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
-                        <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
+              {(() => {
+                // Vendor placeholder rows — vendors whose category has no expense yet
+                const coveredCategories = new Set(expenses.map((e) => e.expense.category));
+                const vendorPlaceholders = vendors.filter(
+                  (v) => !coveredCategories.has(v.category)
+                );
+                const hasRows = expenses.length > 0 || vendorPlaceholders.length > 0;
+
+                if (!hasRows) {
+                  return (
+                    <div className="text-[13px] text-ink-400">
+                      No expenses or vendors registered yet. Add a vendor above to get started.
+                    </div>
+                  );
+                }
+
+                return (
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="text-left border-b border-ink-100/80">
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Category</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Vendor</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-center">Upload receipt</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold">Description</th>
+                        <th className="py-2 eyebrow text-[10px] text-ink-400 font-semibold text-right">Amount</th>
                       </tr>
-                    ))}
-                    <tr className="font-medium">
-                      <td className="py-3" colSpan={2}>Total (passed through)</td>
-                      <td className="py-3 text-right font-mono tabular">{formatMoney(totalExpenses)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              )}
+                    </thead>
+                    <tbody className="divide-y divide-ink-100/60">
+
+                      {/* Existing expense rows */}
+                      {expenses.map(({ expense: e, vendor: v }) => (
+                        <tr key={e.id}>
+                          <td className="py-2.5 capitalize">
+                            {e.category}
+                            {e.absorbedByVenue && (
+                              <PlainBadge variant="amber" className="ml-2">absorbed</PlainBadge>
+                            )}
+                          </td>
+                          <td className="py-2.5">
+                            <ExpenseVendorCell
+                              expenseId={e.id}
+                              showId={show.id}
+                              showDate={show.date}
+                              category={e.category}
+                              linkedVendor={v ?? null}
+                              showVendors={vendors}
+                            />
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <ExpenseReceiptUpload
+                              showId={show.id}
+                              vendor={v ?? null}
+                              showVendors={vendors}
+                              alreadyParsed={e.receiptParsed ?? false}
+                            />
+                          </td>
+                          <td className="py-2.5 text-ink-500">{e.description ?? "—"}</td>
+                          <td className="py-2.5 text-right font-mono tabular">{formatMoney(e.amount)}</td>
+                        </tr>
+                      ))}
+
+                      {/* Vendor placeholder rows — no expense yet for this category */}
+                      {vendorPlaceholders.map((v) => (
+                        <tr key={`placeholder-${v.id}`} className="bg-ink-50/30">
+                          <td className="py-2.5 capitalize text-ink-500">{v.category}</td>
+                          <td className="py-2.5 text-ink-700">{v.name}</td>
+                          <td className="py-2.5 text-center">
+                            <ExpenseReceiptUpload
+                              showId={show.id}
+                              vendor={v}
+                              showVendors={vendors}
+                              alreadyParsed={false}
+                            />
+                          </td>
+                          <td className="py-2.5 text-ink-300">—</td>
+                          <td className="py-2.5 text-right font-mono tabular text-ink-300">—</td>
+                        </tr>
+                      ))}
+
+                      {/* Total row — only show if there are real expenses */}
+                      {expenses.length > 0 && (
+                        <tr className="font-medium">
+                          <td className="py-3" colSpan={4}>Total (passed through)</td>
+                          <td className="py-3 text-right font-mono tabular">{formatMoney(totalExpenses)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>
@@ -476,6 +602,46 @@ function MiniStat({
     </div>
   );
 }
+
+// ── Not agreed indicator ──────────────────────────────────────────────────────
+
+function NotAgreed() {
+  return (
+    <span className="inline-flex items-center gap-1 text-amber-700 text-[12px] font-medium">
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+      Not agreed
+    </span>
+  );
+}
+
+// ── Vendor category labels ────────────────────────────────────────────────────
+
+const VENDOR_CATEGORY_LABELS: Record<string, string> = {
+  sound:       "Sound",
+  lights:      "Lights",
+  production:  "Production",
+  hospitality: "Hospitality",
+  marketing:   "Marketing",
+  backline:    "Backline",
+  security:    "Security",
+  other:       "Other",
+};
+
+// ── Recoup basis ─────────────────────────────────────────────────────────────
+
+const RECOUP_BASIS_LABELS: Record<string, string> = {
+  against_gross: "Deducted from gross",
+  outside_cap:   "Outside expense cap",
+  inside_cap:    "Inside expense cap",
+};
+
+// ── Hospitality overage rule ──────────────────────────────────────────────────
+
+const HOSP_OVERAGE_LABELS: Record<string, string> = {
+  venue_absorbs:  "Venue absorbs",
+  artist_absorbs: "Artist absorbs",
+  split:          "Split 50 / 50",
+};
 
 function BonusBadge({ type }: { type: Bonus["type"] }) {
   const labels: Record<Bonus["type"], string> = {

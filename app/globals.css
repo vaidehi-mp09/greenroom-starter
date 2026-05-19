@@ -141,3 +141,57 @@ select:focus-visible {
   letter-spacing: 0.12em;
   color: var(--color-brand-700);
 }
+
+/* ── Print styles (settlement PDF export) ──────────────────────────────────── */
+@media print {
+  /* Hide everything except the settlement worksheet */
+  nav,
+  aside,
+  header,
+  .no-print,
+  [data-sidebar],
+  a[href="/shows"],
+  a[href="/artists"],
+  a[href="/reports"] {
+    display: none !important;
+  }
+
+  /* Force colours and backgrounds to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Remove page margins */
+  @page {
+    margin: 1.5cm;
+  }
+
+  body {
+    background: white !important;
+    font-size: 11pt;
+  }
+
+  /* Worksheet card full width */
+  .print\:shadow-none {
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Keep table readable */
+  table {
+    width: 100% !important;
+    font-size: 10pt;
+  }
+
+  /* Avoid page breaks inside rows */
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Hide export bar when printing */
+  .settlement-export-bar {
+    display: none !important;
+  }
+}
