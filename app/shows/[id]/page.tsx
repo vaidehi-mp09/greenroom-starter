@@ -528,10 +528,10 @@ export default async function ShowDetailPage({
                             <ExpenseVendorCell
                               expenseId={e.id}
                               showId={show.id}
+                              showDate={show.date}
                               category={e.category}
                               linkedVendor={v ?? null}
                               showVendors={vendors}
-                              masterVendors={masterVendors}
                             />
                           </td>
                           <td className="py-2.5 text-center">

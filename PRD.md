@@ -43,6 +43,7 @@ Greenroom's settlement experience fails at the data layer before it fails at the
 - Smart Settlement Engine (automated calculation for all deal types) — data layer built; calculation layer is the sequentially next build
 - Bar/POS integration for hospitality expense auto-capture
 - Multi-venue support
+- Receipt verification — the tool accepts and parses receipts but does not validate them; the following are deferred to a future phase: wrong category detection (e.g. lights vendor receipt uploaded to a sound row), wrong show detection (prior show receipt uploaded to current show), duplicate receipt detection, and automatic cap-breach flagging on receipt amount vs agreed expense cap
 
 ---
 

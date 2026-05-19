@@ -131,8 +131,11 @@ export default async function SettlePage({
         </div>
       )}
 
+      {/* Lifecycle — hidden in print (internal only) */}
       {settlement && (
-        <LifecycleBar settlement={settlement} disputedRecoups={disputedRecoups.length} />
+        <div className="no-print">
+          <LifecycleBar settlement={settlement} disputedRecoups={disputedRecoups.length} />
+        </div>
       )}
 
       <div className="space-y-6 mt-6">
@@ -149,12 +152,16 @@ export default async function SettlePage({
 
         {recoups.length > 0 && <RecoupsSection recoups={recoups} />}
 
+        {/* Signoff — hidden in print (internal notes, not for agent) */}
         {settlement && (settlement.signoffText || settlement.notes) && (
-          <SignoffSection settlement={settlement} />
+          <div className="no-print">
+            <SignoffSection settlement={settlement} />
+          </div>
         )}
       </div>
 
-      <div className="mt-16 pt-10 border-t border-ink-200/60">
+      {/* Case study context — hidden in print */}
+      <div className="mt-16 pt-10 border-t border-ink-200/60 no-print">
         <div className="flex gap-4 items-start max-w-3xl">
           <Logomark size={40} className="shrink-0" />
           <div>

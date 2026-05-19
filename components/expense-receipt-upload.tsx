@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { Camera, Loader2, CheckCircle2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { parseReceiptAndCreateExpense } from "@/app/actions/vendors";
 import type { Vendor } from "@/db/schema";
 
 interface Props {
-  expenseId?: string;   // optional — placeholder rows have no expense yet
+  expenseId?: string;
   showId: string;
   vendor: Vendor | null;
   showVendors: Vendor[];
@@ -23,14 +23,36 @@ export function ExpenseReceiptUpload({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
 
-  // If no vendor linked yet, pick the first show vendor as fallback
+  // Calculate fixed position when opening so popup escapes card overflow
+  function handleOpen() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: Math.max(8, r.left - 200) });
+    }
+    setOpen((o) => !o);
+  }
+
+  // Close on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      const target = e.target as Node;
+      const popup = document.getElementById("receipt-upload-popup");
+      if (popup && !popup.contains(target) && !btnRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
   const effectiveVendor = vendor ?? showVendors[0] ?? null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!effectiveVendor) return;
-
     const form = e.currentTarget;
     const data = new FormData(form);
     data.set("showId", showId);
@@ -65,7 +87,6 @@ export function ExpenseReceiptUpload({
     });
   }
 
-  // Already parsed — show checkmark
   if (alreadyParsed || success) {
     return (
       <span title="Receipt uploaded" className="flex justify-center">
@@ -75,10 +96,10 @@ export function ExpenseReceiptUpload({
   }
 
   return (
-    <div className="relative">
-      {/* Camera icon button */}
+    <>
       <button
-        onClick={() => setOpen((o) => !o)}
+        ref={btnRef}
+        onClick={handleOpen}
         title="Upload receipt"
         className="flex justify-center w-full text-ink-300 hover:text-brand-600 transition-colors"
       >
@@ -87,18 +108,21 @@ export function ExpenseReceiptUpload({
           : <Camera className="h-3.5 w-3.5" />}
       </button>
 
-      {/* Inline upload form — drops down from the icon */}
+      {/* Fixed-position popup — escapes card overflow */}
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg bg-white ring-1 ring-ink-200/60 shadow-lg p-3 space-y-2">
+        <div
+          id="receipt-upload-popup"
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="w-64 rounded-lg bg-white ring-1 ring-ink-200/60 shadow-xl p-3 space-y-2"
+        >
           <div className="flex items-center justify-between mb-1">
-            <div className="text-[10px] eyebrow text-ink-500">
-              Upload receipt {effectiveVendor ? `· ${effectiveVendor.name}` : ""}
+            <div className="text-[10px] eyebrow text-ink-500 uppercase tracking-wider">
+              Upload receipt{effectiveVendor ? ` · ${effectiveVendor.name}` : ""}
             </div>
             <button onClick={() => setOpen(false)} className="text-ink-300 hover:text-ink-600">
               <X className="h-3 w-3" />
             </button>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-2">
             <div>
               <label className="text-[10px] text-ink-400 block mb-1">Image or PDF</label>
@@ -125,6 +149,6 @@ export function ExpenseReceiptUpload({
           </form>
         </div>
       )}
-    </div>
+    </>
   );
 }
