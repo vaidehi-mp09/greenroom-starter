@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { Camera, Loader2, CheckCircle2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { parseReceiptAndCreateExpense } from "@/app/actions/vendors";
@@ -23,37 +23,6 @@ export function ExpenseReceiptUpload({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef<HTMLButtonElement>(null);
-
-  // Calculate fixed position when opening so popup escapes card overflow.
-  // Right-align popup to the button, clamped so it never goes off-screen.
-  function handleOpen() {
-    if (btnRef.current) {
-      const r   = btnRef.current.getBoundingClientRect();
-      const pw  = 256; // w-64
-      const vw  = window.innerWidth;
-      // Prefer right-aligned to button; clamp within 8px viewport margins
-      let left = r.right - pw;
-      if (left < 8)          left = 8;
-      if (left + pw > vw - 8) left = vw - pw - 8;
-      setPos({ top: r.bottom + 6, left });
-    }
-    setOpen((o) => !o);
-  }
-
-  // Close on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      const target = e.target as Node;
-      const popup = document.getElementById("receipt-upload-popup");
-      if (popup && !popup.contains(target) && !btnRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
 
   const effectiveVendor = vendor ?? showVendors[0] ?? null;
 
@@ -103,52 +72,52 @@ export function ExpenseReceiptUpload({
   }
 
   return (
-    <>
+    <div className="flex flex-col items-center gap-2">
+      {/* Camera toggle */}
       <button
-        ref={btnRef}
-        onClick={handleOpen}
+        onClick={() => setOpen((o) => !o)}
         title="Upload receipt"
-        className="flex justify-center w-full text-ink-300 hover:text-brand-600 transition-colors"
+        className={`transition-colors ${open ? "text-brand-600" : "text-ink-300 hover:text-brand-600"}`}
       >
         {isPending
           ? <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-500" />
           : <Camera className="h-3.5 w-3.5" />}
       </button>
 
-      {/* Fixed-position popup — escapes card overflow */}
+      {/* Inline form — expands within the cell, no overflow issues */}
       {open && (
-        <div
-          id="receipt-upload-popup"
-          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
-          className="w-64 rounded-lg bg-white ring-1 ring-ink-200/60 shadow-xl p-3 space-y-2"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <div className="text-[10px] eyebrow text-ink-500 uppercase tracking-wider">
-              Upload receipt{effectiveVendor ? ` · ${effectiveVendor.name}` : ""}
+        <div className="w-52 rounded-lg bg-white ring-1 ring-ink-200/60 shadow-md p-3 space-y-2 text-left">
+          <div className="flex items-center justify-between">
+            <div className="text-[9px] eyebrow text-ink-500 uppercase tracking-wider leading-tight">
+              {effectiveVendor ? effectiveVendor.name : "Upload receipt"}
             </div>
-            <button onClick={() => setOpen(false)} className="text-ink-300 hover:text-ink-600">
+            <button
+              onClick={() => setOpen(false)}
+              className="text-ink-300 hover:text-ink-600 shrink-0 ml-1"
+            >
               <X className="h-3 w-3" />
             </button>
           </div>
+
           <form onSubmit={handleSubmit} className="space-y-2">
             <div>
               <label className="text-[10px] text-ink-400 block mb-1">Image or PDF</label>
               <input
                 type="file"
                 accept="image/*,.pdf"
-                className="text-[11px] text-ink-600 w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
+                className="text-[10px] text-ink-600 w-full file:mr-1.5 file:py-1 file:px-2 file:rounded file:border-0 file:text-[9px] file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
               />
             </div>
             <div>
               <label className="text-[10px] text-ink-400 block mb-1">Or paste receipt text</label>
               <textarea
                 name="receiptText"
-                rows={3}
-                placeholder="Paste invoice text here…"
-                className="w-full text-[11px] rounded-md ring-1 ring-ink-200/60 bg-white px-2 py-1.5 text-ink-800 placeholder:text-ink-300 focus:outline-none focus:ring-brand-400 resize-none"
+                rows={2}
+                placeholder="Paste invoice text…"
+                className="w-full text-[10px] rounded-md ring-1 ring-ink-200/60 bg-white px-2 py-1.5 text-ink-800 placeholder:text-ink-300 focus:outline-none focus:ring-brand-400 resize-none"
               />
             </div>
-            <Button type="submit" size="sm" variant="brand" disabled={isPending} className="w-full">
+            <Button type="submit" size="sm" variant="brand" disabled={isPending} className="w-full text-[11px]">
               {isPending
                 ? <><Loader2 className="h-3 w-3 animate-spin" /> Parsing…</>
                 : <><Upload className="h-3 w-3" /> Parse & log</>}
@@ -156,6 +125,6 @@ export function ExpenseReceiptUpload({
           </form>
         </div>
       )}
-    </>
+    </div>
   );
 }
