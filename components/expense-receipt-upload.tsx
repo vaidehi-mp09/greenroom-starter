@@ -26,11 +26,18 @@ export function ExpenseReceiptUpload({
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  // Calculate fixed position when opening so popup escapes card overflow
+  // Calculate fixed position when opening so popup escapes card overflow.
+  // Right-align popup to the button, clamped so it never goes off-screen.
   function handleOpen() {
     if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 6, left: Math.max(8, r.left - 200) });
+      const r   = btnRef.current.getBoundingClientRect();
+      const pw  = 256; // w-64
+      const vw  = window.innerWidth;
+      // Prefer right-aligned to button; clamp within 8px viewport margins
+      let left = r.right - pw;
+      if (left < 8)          left = 8;
+      if (left + pw > vw - 8) left = vw - pw - 8;
+      setPos({ top: r.bottom + 6, left });
     }
     setOpen((o) => !o);
   }
